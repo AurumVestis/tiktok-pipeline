@@ -1,5 +1,6 @@
 import asyncio
 import json
+import random  
 from datetime import datetime, timedelta, timezone
 from TikTokApi import TikTokApi
 
@@ -97,7 +98,10 @@ async def process_user(api, username):
 
 async def main():
     async with TikTokApi() as api:
-        await api.create_sessions(
+        await api.create_sessions(context_options={
+    "viewport": {"width": 1280, "height": 720},
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+}
     num_sessions=1,
     headless=False,
     browser="chromium",
@@ -110,8 +114,10 @@ all_results = []
 for target in TARGETS:
     res = await process_user(api, target)
     all_results.extend(res)
+    await asyncio.sleep(random.uniform(4, 8))
 
-    await asyncio.sleep(3)
+
+await asyncio.sleep(random.uniform(4, 8)
 
         # LOAD OLD DATA
         try:
