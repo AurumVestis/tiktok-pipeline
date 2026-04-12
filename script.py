@@ -101,7 +101,7 @@ async def main():
     num_sessions=1,
     headless=False,
     browser="chromium",
-    proxy="http://zmhoeair1:kkw665jgb491@p.webshare.io:80
+    proxy="http://zmhoeair1:kkw665jgb491@p.webshare.io:80"
 )
 
 
