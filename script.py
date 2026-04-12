@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from TikTokApi import TikTokApi
 
-TARGETS = ["username1", "username2"]  # replace later
+TARGETS = ["realusername1", "realusername2"]  # replace later
 
 MAX_RESULTS = 20
 FOLLOWER_THRESHOLD = 1000
@@ -97,13 +97,21 @@ async def process_user(api, username):
 
 async def main():
     async with TikTokApi() as api:
-        await api.create_sessions()
+        await api.create_sessions(
+    num_sessions=1,
+    headless=False,
+    browser="chromium",
+    proxy="http://zmhoeair-4:kkw665jgb491@p.webshare.io:80"
+)
 
         all_results = []
 
-        for target in TARGETS:
-            res = await process_user(api, target)
-            all_results.extend(res)
+       for target in TARGETS:
+    res = await process_user(api, target)
+    all_results.extend(res)
+
+    import asyncio
+    await asyncio.sleep(3)
 
         # LOAD OLD DATA
         try:
