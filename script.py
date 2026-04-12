@@ -101,7 +101,7 @@ async def main():
         await api.create_sessions(context_options={
     "viewport": {"width": 1280, "height": 720},
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
-}
+    },
     num_sessions=1,
     headless=False,
     browser="chromium",
