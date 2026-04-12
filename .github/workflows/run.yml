@@ -1,5 +1,7 @@
+name: TikTok Pipeline
+
 permissions:
-  contents: writename: TikTok Pipeline
+  contents: write
 
 on:
   workflow_dispatch:
