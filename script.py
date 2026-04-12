@@ -18,6 +18,43 @@ async def process_user(api, username):
     user = api.user(username=username)
     results = []
 
+    try:
+        async for video in user.videos(count=30):
+            try:
+                author = video.as_dict.get("author", {})
+                stats = video.as_dict.get("authorStats", {})
+
+                uname = author.get("uniqueId", "")
+                followers = stats.get("followerCount", 0)
+                likes = stats.get("heartCount", 0)
+
+                if followers >= FOLLOWER_THRESHOLD:
+                    continue
+
+                ts = video.as_dict.get("createTime", 0)
+                post_time = datetime.fromtimestamp(ts, tz=timezone.utc)
+
+                if post_time < datetime.now(timezone.utc) - timedelta(days=DAYS_ACTIVE_THRESHOLD):
+                    continue
+
+                engagement = likes / followers if followers else 0
+
+                results.append({
+                    "username": uname,
+                    "followers": followers,
+                    "likes": likes,
+                    "engagement": engagement,
+                    "score": score_user(followers, engagement)
+                })
+
+            except:
+                continue
+
+    except Exception as e:
+        print(f"Error processing {username}: {e}")
+
+    return results
+
     async for u in user.following(count=200):
         try:
             info = await u.info()
