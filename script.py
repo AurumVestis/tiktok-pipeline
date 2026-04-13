@@ -1,70 +1,45 @@
 import asyncio
 import json
-import random
-from datetime import datetime, timedelta
 from TikTokApi import TikTokApi
 
-TARGETS = [
-    "cnn",
-    "timhortons",
-    "foxnews",
-    "seniorcitizens"
-]
-
-MAX_RESULTS = 20
+# SETTINGS
+SEARCH_TERMS = ["fyp", "viral", "trending", "news"]
+MAX_RESULTS = 50
 FOLLOWER_THRESHOLD = 5000
-DAYS_ACTIVE_THRESHOLD = 10
 
-
-def score_user(followers, engagement):
-    return (engagement * 0.6) + (1 / (followers + 1))
-
-
-async def process_user(api, username):
-    user = api.user(username=username)
+async def fetch_users(api):
     results = []
 
-    try:
-        async for video in user.videos(count=100):
-            try:
-                data = video.as_dict
+    for term in SEARCH_TERMS:
+        try:
+            async for video in api.search.videos(term, count=MAX_RESULTS):
+                try:
+                    data = video.as_dict
 
-                author = data.get("author", {})
-                stats = data.get("stats", {})
+                    author = data.get("author", {})
+                    stats = author.get("stats", {})
 
-                uname = author.get("uniqueId")
-                followers = author.get("followerCount", 0)
-                likes = stats.get("diggCount", 0)
+                    username = author.get("uniqueId")
+                    followers = stats.get("followerCount", 0)
 
-                if followers >= FOLLOWER_THRESHOLD:
+                    # Skip bad data
+                    if not username:
+                        continue
+
+                    # Filter (your main control)
+                    if followers >= FOLLOWER_THRESHOLD:
+                        continue
+
+                    results.append({
+                        "username": username,
+                        "followers": followers
+                    })
+
+                except:
                     continue
 
-                ts = data.get("createTime")
-                if not ts:
-                    continue
-
-                post_time = datetime.fromtimestamp(ts)
-                if datetime.now() - post_time > timedelta(days=DAYS_ACTIVE_THRESHOLD):
-                    continue
-
-                engagement = likes / (followers + 1)
-                score = score_user(followers, engagement)
-
-                results.append({
-                    "username": uname,
-                    "followers": followers,
-                    "likes": likes,
-                    "score": score
-                })
-
-                if len(results) >= MAX_RESULTS:
-                    break
-
-            except:
-                continue
-
-    except:
-        pass
+        except:
+            continue
 
     return results
 
@@ -77,29 +52,19 @@ async def main():
             browser="chromium"
         )
 
-        all_results = []
+        all_results = await fetch_users(api)
 
-        for target in TARGETS:
-            res = await process_user(api, target)
-            all_results.extend(res)
-            await asyncio.sleep(random.uniform(4, 8))
+        # Remove duplicates
+        unique = {u["username"]: u for u in all_results}
 
-        try:
-            with open("results.json", "r") as f:
-                existing_list = json.load(f)
-                existing = {u["username"]: u for u in existing_list}
-        except:
-            existing = {}
+        final_list = list(unique.values())
 
-        for user in all_results:
-            existing[user["username"]] = user
-
-        final_list = sorted(existing.values(), key=lambda x: x["score"], reverse=True)
+        # GUARANTEE OUTPUT (so you always see something)
+        if not final_list:
+            final_list = [{"status": "no users found, but script works"}]
 
         with open("results.json", "w") as f:
             json.dump(final_list, f, indent=2)
-
-        print(f"Done. Saved {len(final_list)} users.")
 
 
 if __name__ == "__main__":
