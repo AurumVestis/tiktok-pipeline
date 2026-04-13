@@ -117,7 +117,7 @@ for target in TARGETS:
     await asyncio.sleep(random.uniform(4, 8))
 
 
-await asyncio.sleep(random.uniform(4, 8)
+await asyncio.sleep(random.uniform(4, 8))
 
         # LOAD OLD DATA
         try:
