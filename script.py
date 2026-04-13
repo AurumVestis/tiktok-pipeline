@@ -4,11 +4,11 @@ import random
 from datetime import datetime, timedelta
 from TikTokApi import TikTokApi
 
-TARGETS = ["khaby.lame", "mrbeast"]
+TARGETS = ["entrepreneur", "businessmotivation"]
 
 MAX_RESULTS = 20
-FOLLOWER_THRESHOLD = 1000
-DAYS_ACTIVE_THRESHOLD = 7
+FOLLOWER_THRESHOLD = 100000
+DAYS_ACTIVE_THRESHOLD = 30
 
 
 def score_user(followers, engagement):
