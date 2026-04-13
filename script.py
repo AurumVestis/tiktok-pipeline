@@ -1,10 +1,13 @@
 import asyncio
 import json
-import random  
-from datetime import datetime, timedelta, timezone
+import random
+from datetime import datetime, timedelta
 from TikTokApi import TikTokApi
 
-TARGETS = ["khaby.lame", "mrbeast"] 
+# YOUR PROXY
+PROXY = "http://zmhoeair-1:kkw665jgb491@p.webshare.io:80"
+
+TARGETS = ["khaby.lame", "mrbeast"]
 
 MAX_RESULTS = 20
 FOLLOWER_THRESHOLD = 1000
@@ -22,23 +25,25 @@ async def process_user(api, username):
     try:
         async for video in user.videos(count=30):
             try:
-                author = video.as_dict.get("author", {})
-                stats = video.as_dict.get("authorStats", {})
+                data = video.as_dict
 
-                uname = author.get("uniqueId", "")
+                author = data.get("author", {})
+                stats = data.get("stats", {})
+
+                uname = author.get("uniqueId")
                 followers = stats.get("followerCount", 0)
-                likes = stats.get("heartCount", 0)
+                likes = stats.get("diggCount", 0)
 
                 if followers >= FOLLOWER_THRESHOLD:
                     continue
 
-                ts = video.as_dict.get("createTime", 0)
-                post_time = datetime.fromtimestamp(ts, tz=timezone.utc)
+                create_time = data.get("createTime", 0)
+                post_time = datetime.fromtimestamp(create_time)
 
-                if post_time < datetime.now(timezone.utc) - timedelta(days=DAYS_ACTIVE_THRESHOLD):
+                if datetime.now() - post_time > timedelta(days=DAYS_ACTIVE_THRESHOLD):
                     continue
 
-                engagement = likes / followers if followers else 0
+                engagement = likes / (followers + 1)
 
                 results.append({
                     "username": uname,
@@ -51,95 +56,50 @@ async def process_user(api, username):
             except:
                 continue
 
-    except Exception as e:
-        print(f"Error processing {username}: {e}")
-
-    return results
-
-    async for u in user.following(count=200):
-        try:
-            info = await u.info()
-            stats = info["userInfo"]["stats"]
-            user_data = info["userInfo"]["user"]
-
-            followers = stats.get("followerCount", 0)
-            likes = stats.get("heartCount", 0)
-            uname = user_data.get("uniqueId", "")
-
-            if followers >= FOLLOWER_THRESHOLD:
-                continue
-
-            active = False
-            async for vid in u.videos(count=1):
-                ts = vid.as_dict.get("createTime", 0)
-                post_time = datetime.fromtimestamp(ts, tz=timezone.utc)
-
-                if post_time >= datetime.now(timezone.utc) - timedelta(days=DAYS_ACTIVE_THRESHOLD):
-                    active = True
-
-            if not active:
-                continue
-
-            engagement = likes / followers if followers else 0
-
-            results.append({
-                "username": uname,
-                "followers": followers,
-                "likes": likes,
-                "engagement": engagement,
-                "score": score_user(followers, engagement)
-            })
-
-        except:
-            continue
+    except:
+        pass
 
     return results
 
 
 async def main():
     async with TikTokApi() as api:
-        await api.create_sessions(context_options={
-    "viewport": {"width": 1280, "height": 720},
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
-    },
-    num_sessions=1,
-    headless=False,
-    browser="chromium",
-    proxy="http://zmhoeair1:kkw665jgb491@p.webshare.io:80"
-)
+        await api.create_sessions(
+            num_sessions=1,
+            headless=True,
+            browser="chromium",
+            proxy=PROXY
+        )
 
+        all_results = []
 
-all_results = []
+        for target in TARGETS:
+            res = await process_user(api, target)
+            all_results.extend(res)
 
-for target in TARGETS:
-    res = await process_user(api, target)
-    all_results.extend(res)
-    await asyncio.sleep(random.uniform(4, 8))
+            await asyncio.sleep(random.uniform(4, 8))
 
+        try:
+            with open("results.json") as f:
+                existing = {u["username"]: u for u in json.load(f)}
+        except:
+            existing = {}
 
-
-
-        # LOAD OLD DATA
-try:
-    with open("results.json") as f:
-        existing = {u["username"]: u for u in json.load(f)}
-except:
-    existing = {}
-
-        # MERGE
         for user in all_results:
-            if user["username"] not in existing or user["score"] > existing[user["username"]]["score"]:
+            if user["username"] not in existing:
                 existing[user["username"]] = user
 
-        final_list = sorted(existing.values(), key=lambda x: x["score"], reverse=True)
+        final_list = sorted(
+            existing.values(),
+            key=lambda x: x["score"],
+            reverse=True
+        )[:MAX_RESULTS]
 
-        # SAVE
         with open("results.json", "w") as f:
-            json.dump(final_list, f)
+            json.dump(final_list, f, indent=2)
 
-        # PRINT TOP
-        for u in final_list[:MAX_RESULTS]:
-            print(u["username"])
+        for u in final_list:
+            print(u["username"], u["score"])
 
 
 if __name__ == "__main__":
