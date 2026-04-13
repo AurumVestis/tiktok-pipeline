@@ -1,61 +1,123 @@
 import asyncio
 import json
+import random
 from TikTokApi import TikTokApi
 
-# SETTINGS
-SEARCH_TERMS = ["fyp", "viral", "trending", "news"]
-MAX_RESULTS = 100
+# ================= CONFIG =================
+TARGETS = [
+    "breaking news",
+    "street interviews",
+    "viral clips",
+    "public reactions",
+    "news commentary"
+]
 
+FOLLOWER_THRESHOLD = 5000
+MAX_RESULTS = 20
+MIN_RESULTS_BEFORE_FALLBACK = 5
 
-async def fetch_users(api):
+# ================ CORE ===================
+
+async def fetch_users(api, keyword):
     results = []
 
-    for term in SEARCH_TERMS:
-        try:
-            async for video in api.search.videos(term, count=MAX_RESULTS):
-                try:
-                    data = video.as_dict
+    try:
+        videos = api.search.videos(keyword, count=30)
 
-                    author = data.get("author", {})
-                    username = author.get("uniqueId")
+        async for video in videos:
+            try:
+                user = video.author
+                stats = await user.stats()
 
-                    if not username:
-                        continue
+                followers = stats.get("followerCount", 0)
 
-                    results.append(username)
-
-                except:
+                if followers >= FOLLOWER_THRESHOLD:
                     continue
-        except:
-            continue
+
+                results.append({
+                    "username": user.unique_id,
+                    "followers": followers
+                })
+
+                if len(results) >= MAX_RESULTS:
+                    break
+
+            except Exception:
+                continue
+
+    except Exception:
+        return []
 
     return results
 
 
+async def fallback_strategy(api):
+    fallback_results = []
+
+    fallback_keywords = ["fyp", "trending", "viral", "funny"]
+
+    for keyword in fallback_keywords:
+        data = await fetch_users(api, keyword)
+        fallback_results.extend(data)
+
+        if len(fallback_results) >= MAX_RESULTS:
+            break
+
+    return fallback_results[:MAX_RESULTS]
+
+
 async def main():
-    async with TikTokApi() as api:
-        await api.create_sessions(
-            num_sessions=1,
-            headless=True,
-            browser="chromium"
-        )
+    all_results = []
 
-        usernames = await fetch_users(api)
+    try:
+        async with TikTokApi() as api:
+            await api.create_sessions(
+                num_sessions=1,
+                sleep_after=3,
+                browser="chromium"
+            )
 
-        # Remove duplicates
-        unique_usernames = list(set(usernames))
+            # PRIMARY STRATEGY
+            for keyword in TARGETS:
+                users = await fetch_users(api, keyword)
+                all_results.extend(users)
 
-        # Guarantee output
-        if not unique_usernames:
-            unique_usernames = ["no_data_but_pipeline_runs"]
+                if len(all_results) >= MAX_RESULTS:
+                    break
 
-        # Format result
-        final_list = [{"username": u} for u in unique_usernames]
+            # FALLBACK IF TOO EMPTY
+            if len(all_results) < MIN_RESULTS_BEFORE_FALLBACK:
+                fallback_users = await fallback_strategy(api)
+                all_results.extend(fallback_users)
 
-        # Save
+    except Exception as e:
         with open("results.json", "w") as f:
-            json.dump(final_list, f, indent=2)
+            json.dump({
+                "status": "error",
+                "message": str(e)
+            }, f, indent=2)
+        return
+
+    # REMOVE DUPLICATES
+    unique = {}
+    for user in all_results:
+        unique[user["username"]] = user
+
+    final_results = list(unique.values())[:MAX_RESULTS]
+
+    # FINAL SAFETY OUTPUT
+    if not final_results:
+        output = [{
+            "username": "no_results_found",
+            "reason": "filters_too_strict_or_no_data"
+        }]
+    else:
+        output = final_results
+
+    with open("results.json", "w") as f:
+        json.dump(output, f, indent=2)
 
 
+# =============== RUN =====================
 if __name__ == "__main__":
     asyncio.run(main())
