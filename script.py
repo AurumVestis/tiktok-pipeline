@@ -3,44 +3,50 @@ import json
 import random
 from TikTokApi import TikTokApi
 
-# ================= CONFIG =================
+# ========= CONFIG =========
 TARGETS = [
     "breaking news",
-    "street interviews",
-    "viral clips",
-    "public reactions",
-    "news commentary"
+    "viral news",
+    "public interviews",
+    "street reactions",
+    "trending topics"
 ]
 
-FOLLOWER_THRESHOLD = 5000
-MAX_RESULTS = 20
-MIN_RESULTS_BEFORE_FALLBACK = 5
+FOLLOWER_THRESHOLD = 10000
+MAX_RESULTS = 30
 
-# ================ CORE ===================
 
+# ========= CORE =========
 async def fetch_users(api, keyword):
     results = []
 
     try:
-        videos = api.search.videos(keyword, count=30)
-
-        async for video in videos:
+        async for user in api.search.users(keyword, count=50):
             try:
-                user = video.author
-                stats = await user.stats()
+                info = await user.info()
+
+                stats = info.get("stats", {})
+                user_data = info.get("user", {})
 
                 followers = stats.get("followerCount", 0)
+                username = user_data.get("uniqueId")
+
+                if not username:
+                    continue
 
                 if followers >= FOLLOWER_THRESHOLD:
                     continue
 
                 results.append({
-                    "username": user.unique_id,
+                    "username": username,
                     "followers": followers
                 })
 
                 if len(results) >= MAX_RESULTS:
                     break
+
+                # small delay to reduce blocking
+                await asyncio.sleep(random.uniform(1, 2))
 
             except Exception:
                 continue
@@ -51,21 +57,7 @@ async def fetch_users(api, keyword):
     return results
 
 
-async def fallback_strategy(api):
-    fallback_results = []
-
-    fallback_keywords = ["fyp", "trending", "viral", "funny"]
-
-    for keyword in fallback_keywords:
-        data = await fetch_users(api, keyword)
-        fallback_results.extend(data)
-
-        if len(fallback_results) >= MAX_RESULTS:
-            break
-
-    return fallback_results[:MAX_RESULTS]
-
-
+# ========= MAIN =========
 async def main():
     all_results = []
 
@@ -77,18 +69,12 @@ async def main():
                 browser="chromium"
             )
 
-            # PRIMARY STRATEGY
             for keyword in TARGETS:
                 users = await fetch_users(api, keyword)
                 all_results.extend(users)
 
                 if len(all_results) >= MAX_RESULTS:
                     break
-
-            # FALLBACK IF TOO EMPTY
-            if len(all_results) < MIN_RESULTS_BEFORE_FALLBACK:
-                fallback_users = await fallback_strategy(api)
-                all_results.extend(fallback_users)
 
     except Exception as e:
         with open("results.json", "w") as f:
@@ -98,26 +84,24 @@ async def main():
             }, f, indent=2)
         return
 
-    # REMOVE DUPLICATES
+    # remove duplicates
     unique = {}
     for user in all_results:
         unique[user["username"]] = user
 
     final_results = list(unique.values())[:MAX_RESULTS]
 
-    # FINAL SAFETY OUTPUT
+    # fallback output (never empty file)
     if not final_results:
-        output = [{
+        final_results = [{
             "username": "no_results_found",
-            "reason": "filters_too_strict_or_no_data"
+            "reason": "likely_environment_limited"
         }]
-    else:
-        output = final_results
 
     with open("results.json", "w") as f:
-        json.dump(output, f, indent=2)
+        json.dump(final_results, f, indent=2)
 
 
-# =============== RUN =====================
+# ========= RUN =========
 if __name__ == "__main__":
     asyncio.run(main())
