@@ -4,11 +4,16 @@ import random
 from datetime import datetime, timedelta
 from TikTokApi import TikTokApi
 
-TARGETS = ["entrepreneur", "businessmotivation"]
+TARGETS = [
+    "cnn",
+    "bbcnews",
+    "foxnews",
+    "aljazeeraenglish"
+]
 
 MAX_RESULTS = 20
 FOLLOWER_THRESHOLD = 100000
-DAYS_ACTIVE_THRESHOLD = 30
+DAYS_ACTIVE_THRESHOLD = 120
 
 
 def score_user(followers, engagement):
@@ -20,7 +25,7 @@ async def process_user(api, username):
     results = []
 
     try:
-        async for video in user.videos(count=30):
+        async for video in user.videos(count=100):
             try:
                 data = video.as_dict
 
