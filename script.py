@@ -6,14 +6,14 @@ from TikTokApi import TikTokApi
 
 TARGETS = [
     "cnn",
-    "bbcnews",
+    "timhortons",
     "foxnews",
-    "aljazeeraenglish"
+    "seniorcitizens"
 ]
 
 MAX_RESULTS = 20
-FOLLOWER_THRESHOLD = 100000
-DAYS_ACTIVE_THRESHOLD = 120
+FOLLOWER_THRESHOLD = 5000
+DAYS_ACTIVE_THRESHOLD = 10
 
 
 def score_user(followers, engagement):
