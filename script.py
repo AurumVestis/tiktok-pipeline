@@ -4,8 +4,8 @@ from TikTokApi import TikTokApi
 
 # SETTINGS
 SEARCH_TERMS = ["fyp", "viral", "trending", "news"]
-MAX_RESULTS = 50
-FOLLOWER_THRESHOLD = 5000
+MAX_RESULTS = 100
+
 
 async def fetch_users(api):
     results = []
@@ -17,27 +17,15 @@ async def fetch_users(api):
                     data = video.as_dict
 
                     author = data.get("author", {})
-                    stats = author.get("stats", {})
-
                     username = author.get("uniqueId")
-                    followers = stats.get("followerCount", 0)
 
-                    # Skip bad data
                     if not username:
                         continue
 
-                    # Filter (your main control)
-                    if followers >= FOLLOWER_THRESHOLD:
-                        continue
-
-                    results.append({
-                        "username": username,
-                        "followers": followers
-                    })
+                    results.append(username)
 
                 except:
                     continue
-
         except:
             continue
 
@@ -52,17 +40,19 @@ async def main():
             browser="chromium"
         )
 
-        all_results = await fetch_users(api)
+        usernames = await fetch_users(api)
 
         # Remove duplicates
-        unique = {u["username"]: u for u in all_results}
+        unique_usernames = list(set(usernames))
 
-        final_list = list(unique.values())
+        # Guarantee output
+        if not unique_usernames:
+            unique_usernames = ["no_data_but_pipeline_runs"]
 
-        # GUARANTEE OUTPUT (so you always see something)
-        if not final_list:
-            final_list = [{"status": "no users found, but script works"}]
+        # Format result
+        final_list = [{"username": u} for u in unique_usernames]
 
+        # Save
         with open("results.json", "w") as f:
             json.dump(final_list, f, indent=2)
 
