@@ -117,14 +117,14 @@ for target in TARGETS:
     await asyncio.sleep(random.uniform(4, 8))
 
 
-await asyncio.sleep(random.uniform(4, 8))
+
 
         # LOAD OLD DATA
-        try:
-            with open("results.json") as f:
-                existing = {u["username"]: u for u in json.load(f)}
-        except:
-            existing = {}
+try:
+    with open("results.json") as f:
+        existing = {u["username"]: u for u in json.load(f)}
+except:
+    existing = {}
 
         # MERGE
         for user in all_results:
