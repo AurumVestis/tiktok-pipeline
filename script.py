@@ -4,9 +4,6 @@ import random
 from datetime import datetime, timedelta
 from TikTokApi import TikTokApi
 
-# YOUR PROXY
-PROXY = "http://zmhoeair-1:kkw665jgb491@p.webshare.io:80"
-
 TARGETS = ["khaby.lame", "mrbeast"]
 
 MAX_RESULTS = 20
@@ -15,7 +12,7 @@ DAYS_ACTIVE_THRESHOLD = 7
 
 
 def score_user(followers, engagement):
-    return (engagement * 0.6) + ((1 / (followers + 1)) * 0.4)
+    return (engagement * 0.6) + (1 / (followers + 1))
 
 
 async def process_user(api, username):
@@ -31,27 +28,32 @@ async def process_user(api, username):
                 stats = data.get("stats", {})
 
                 uname = author.get("uniqueId")
-                followers = stats.get("followerCount", 0)
+                followers = author.get("followerCount", 0)
                 likes = stats.get("diggCount", 0)
 
                 if followers >= FOLLOWER_THRESHOLD:
                     continue
 
-                create_time = data.get("createTime", 0)
-                post_time = datetime.fromtimestamp(create_time)
+                ts = data.get("createTime")
+                if not ts:
+                    continue
 
+                post_time = datetime.fromtimestamp(ts)
                 if datetime.now() - post_time > timedelta(days=DAYS_ACTIVE_THRESHOLD):
                     continue
 
                 engagement = likes / (followers + 1)
+                score = score_user(followers, engagement)
 
                 results.append({
                     "username": uname,
                     "followers": followers,
                     "likes": likes,
-                    "engagement": engagement,
-                    "score": score_user(followers, engagement)
+                    "score": score
                 })
+
+                if len(results) >= MAX_RESULTS:
+                    break
 
             except:
                 continue
@@ -67,8 +69,7 @@ async def main():
         await api.create_sessions(
             num_sessions=1,
             headless=True,
-            browser="chromium",
-            proxy=PROXY
+            browser="chromium"
         )
 
         all_results = []
@@ -76,30 +77,24 @@ async def main():
         for target in TARGETS:
             res = await process_user(api, target)
             all_results.extend(res)
-
             await asyncio.sleep(random.uniform(4, 8))
 
         try:
-            with open("results.json") as f:
-                existing = {u["username"]: u for u in json.load(f)}
+            with open("results.json", "r") as f:
+                existing_list = json.load(f)
+                existing = {u["username"]: u for u in existing_list}
         except:
             existing = {}
 
         for user in all_results:
-            if user["username"] not in existing:
-                existing[user["username"]] = user
+            existing[user["username"]] = user
 
-        final_list = sorted(
-            existing.values(),
-            key=lambda x: x["score"],
-            reverse=True
-        )[:MAX_RESULTS]
+        final_list = sorted(existing.values(), key=lambda x: x["score"], reverse=True)
 
         with open("results.json", "w") as f:
             json.dump(final_list, f, indent=2)
 
-        for u in final_list:
-            print(u["username"], u["score"])
+        print(f"Done. Saved {len(final_list)} users.")
 
 
 if __name__ == "__main__":
