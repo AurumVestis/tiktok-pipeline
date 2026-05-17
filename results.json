@@ -1,6 +1,4 @@
-[
-  {
-    "username": "no_results_found",
-    "reason": "likely_environment_limited"
-  }
-]
+{
+  "status": "error",
+  "message": "Timeout 30000ms exceeded."
+}
